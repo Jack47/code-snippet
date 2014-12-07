@@ -2,10 +2,6 @@ Log::Reader::Record {
 
 }
 
-_file;
-_last_offset;//保存_file的当前offset
-bool _eof;//指示_file.Read是否到达文件尾部
-Reporter* _reporter;
 Reader(SequentialFile* file, Reporter* reporter, bool checksum, uint64_t initial_offset){
 	assert(file!=NULL);
 	_file = file;
@@ -34,6 +30,7 @@ Reader(SequentialFile* file, Reporter* reporter, bool checksum, uint64_t initial
 	
 }
 //从db_impl看到Reader.ReadRecord()之后，直接就写入记录到WriteBatch了
+//读取一条调用者之前写入的Record	［一条外部的Record］
 bool ReadRecord(Slice* record, std::string* scratch);//读出来，就放到WriteBatch里面了：
 {
 	//遍历BlockRecord,读取到对外完整的一个“Record”
@@ -46,7 +43,7 @@ bool ReadRecord(Slice* record, std::string* scratch);//读出来，就放到Writ
 
 	do {
 		s =	ReadBlockRecord(needCheckSum, &blockRecord,&t);
-		scratch->append(s);
+		scratch->append(blockRecord);
 	} while(s.ok&&!(t==FULL || t== LAST));
 
 	if(!s.ok){
@@ -57,10 +54,10 @@ bool ReadRecord(Slice* record, std::string* scratch);//读出来，就放到Writ
 }
 private:
 	char _block_buffer[kBlockSize];//不用考虑缓存的问题吧
-	bool _bufferEmpty = true;
-	int _bufferIndex =0;
-	int _bufferLength = 0;
-	//从当前的_file 里读取一个调用者之前写入的Record	
+	bool _bufferEmpty = true; //是否读取的32K的_block_buffer都消耗完了
+	int _bufferIndex =0;//当前消耗到哪里了
+	int _bufferLength = 0;//_block_buffer中有多少真实的数据
+	//从当前的block里读取一个内部的记录
 Status ReadBlockRecord(bool checksum, String* record, Type* t){
 	Slice blockRecord;//一个block，32字节
 	Slice block;
@@ -96,11 +93,14 @@ Status ReadBlockRecord(bool checksum, String* record, Type* t){
 	int blockRecordSize = dataLength+kHeaderSize;//当前这一小块的总大小
 
 	blockRecord->data=currentBlockBuffer;
-	blockRecord->size=kHeaderSize+dataLength;
+	blockRecord->size=blockRecordSize;
 	_last_offset += blockRecord->size();
 	
 	if(checksum){
-			bool ret = crc32(result->data+sizeof(uint32), result->size()-sizeof(uint32), reinterpreter_cast<uint32*>result->data());			if(!ret){
+		bool crc32_value = *reinterpreter_cast<uint32*>(blockRecord->data());
+		bool ret = crc32(blockRecord->data()+kTypeIndex, blockRecord->size-kCheckSumSize,
+		 crc32_value);
+		if(!ret){
 			return Status(Error, checkSum error);
 		}
 	}
@@ -114,9 +114,12 @@ Status ReadBlockRecord(bool checksum, String* record, Type* t){
 const int kCheckSumSize = 4;
 const int kLengthSize = 2;
 const int kTypeSize = 1;
+
 const int kTypeIndex = kCheckSumSize+kLengthSize;
 const int kLengthIndex = kCheckSumSize;
 const int kDataIndex = kCheckSumSize+kLengthSize+kTypeSize;
-String block_buffer(kBlockSize);
-Slice slice;
-file.Read(kBlockSize,&slice, block_buffer->data());
+char _block_buffer[kBlockSize];
+_file;
+_last_offset;//保存_file的当前offset
+bool _eof;//指示_file.Read是否到达文件尾部
+Reporter* _reporter;
