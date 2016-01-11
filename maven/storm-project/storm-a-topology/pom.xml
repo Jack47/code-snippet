@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.corp.group.business</groupId>
+        <artifactId>storm-parent</artifactId>
+        <version>1.0.1-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>storm-a-topology</artifactId>
+    <version>${mystorm.version}</version>
+    <packaging>pom</packaging>
+    <name>RealTimeProcessing - Storm Topology</name>
+    <description>Topology for corpa business</description>
+
+    <modules>
+        <module>a-click-0</module>
+        <module>a-pv-0</module>        
+    </modules>
+
+    <dependencies>
+        <!--Compile-->
+        <dependency>
+            <groupId>com.alimama.hurricane</groupId>
+            <artifactId>storm-a-processor</artifactId>
+            <version>${mystorm.version}</version>
+        </dependency>
+    </dependencies>
+</project>
